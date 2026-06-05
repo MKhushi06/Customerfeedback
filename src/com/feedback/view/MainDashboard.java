@@ -36,6 +36,10 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.Path2D;
 
 public class MainDashboard extends JFrame {
     private final FeedbackController controller;
@@ -459,7 +463,7 @@ public class MainDashboard extends JFrame {
         detailStarPanel = new StarRatingPanel();
         detailStarPanel.setRating(0);
         detailStarPanel.setEditable(false);
-        detailStarPanel.setPreferredSize(new Dimension(100, 20));
+        detailStarPanel.setPreferredSize(new Dimension(144, 28));
         dGbc.gridx = 1; dGbc.gridy = 4;
         infoGrid.add(detailStarPanel, dGbc);
 
@@ -760,26 +764,79 @@ public class MainDashboard extends JFrame {
         }
     }
 
-    private static class RatingStarsRenderer extends DefaultTableCellRenderer {
+    private static class RatingStarsRenderer extends JPanel implements javax.swing.table.TableCellRenderer {
+        private int rating = 0;
+        private static final int STAR_SIZE = 14;
+        private static final int GAP = 4;
+        private static final Color GOLD = new Color(245, 158, 11);
+        private static final Color GRAY = new Color(209, 213, 219); // light gray for outline
+
+        public RatingStarsRenderer() {
+            setOpaque(true);
+        }
+
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            label.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            label.setForeground(new Color(245, 158, 11)); // Gold
-            label.setHorizontalAlignment(JLabel.CENTER);
-
-            if (value != null) {
-                int rating = (int) value;
-                StringBuilder stars = new StringBuilder();
-                for (int i = 0; i < rating; i++) {
-                    stars.append("★");
-                }
-                for (int i = rating; i < 5; i++) {
-                    stars.append("☆");
-                }
-                label.setText(stars.toString());
+            if (value instanceof Integer) {
+                this.rating = (Integer) value;
+            } else {
+                this.rating = 0;
             }
-            return label;
+            if (isSelected) {
+                setBackground(table.getSelectionBackground());
+            } else {
+                setBackground(table.getBackground());
+            }
+            return this;
+        }
+
+        private Path2D createStar(double x, double y, double innerRadius, double outerRadius) {
+            Path2D path = new Path2D.Double();
+            int numRays = 5;
+            double angle = Math.PI / numRays;
+            for (int i = 0; i < 2 * numRays; i++) {
+                double r = (i % 2 == 0) ? outerRadius : innerRadius;
+                double a = i * angle - Math.PI / 2;
+                double px = x + r * Math.cos(a);
+                double py = y + r * Math.sin(a);
+                if (i == 0) {
+                    path.moveTo(px, py);
+                } else {
+                    path.lineTo(px, py);
+                }
+            }
+            path.closePath();
+            return path;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int width = getWidth();
+            int height = getHeight();
+            int totalWidth = (STAR_SIZE + GAP) * 5 - GAP;
+            int startX = (width - totalWidth) / 2;
+
+            for (int i = 0; i < 5; i++) {
+                int starX = startX + i * (STAR_SIZE + GAP);
+                double cx = starX + STAR_SIZE / 2.0;
+                double cy = height / 2.0;
+                
+                Path2D star = createStar(cx, cy, STAR_SIZE / 4.5, STAR_SIZE / 2.0);
+
+                if (i < rating) {
+                    g2.setColor(GOLD);
+                    g2.fill(star);
+                } else {
+                    g2.setColor(GRAY);
+                    g2.draw(star);
+                }
+            }
+
+            g2.dispose();
         }
     }
 
